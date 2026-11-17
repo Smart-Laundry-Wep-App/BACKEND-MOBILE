@@ -35,6 +35,7 @@ const validatePromo = async (req, res, next) => {
     if (!code) {
       return res.status(400).json({
         success: false,
+        field: 'code',
         message: 'Kode voucher wajib dimasukkan.',
       });
     }
@@ -49,6 +50,7 @@ const validatePromo = async (req, res, next) => {
     if (rows.length === 0) {
       return res.status(404).json({
         success: false,
+        field: 'code',
         message: `Kode voucher '${code}' tidak valid atau sudah kedaluwarsa.`,
       });
     }
@@ -58,6 +60,7 @@ const validatePromo = async (req, res, next) => {
     if (parseFloat(order_amount) > 0 && parseFloat(order_amount) < parseFloat(promo.min_order_amount)) {
       return res.status(400).json({
         success: false,
+        field: 'code',
         message: `Minimal transaksi untuk voucher '${promo.code}' adalah Rp ${parseFloat(promo.min_order_amount).toLocaleString('id-ID')}.`,
       });
     }
@@ -85,6 +88,7 @@ const claimPromo = async (req, res, next) => {
     if (!code || !String(code).trim()) {
       return res.status(400).json({
         success: false,
+        field: 'code',
         message: 'Kode voucher wajib dimasukkan.',
       });
     }
@@ -96,6 +100,7 @@ const claimPromo = async (req, res, next) => {
     if (!promos.length) {
       return res.status(404).json({
         success: false,
+        field: 'code',
         message: 'Kode promo tidak tersedia atau sudah kedaluwarsa.',
       });
     }

@@ -31,31 +31,59 @@ const register = async (req, res, next) => {
   try {
     const { name, email, password, confirm_password, username, phone, province, city, address } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Nama, Email, dan Password wajib diisi.',
+        field: 'name',
+        message: 'Nama lengkap wajib diisi.',
+      });
+    }
+
+    if (name.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        field: 'name',
+        message: 'Nama minimal 3 karakter.',
+      });
+    }
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        field: 'email',
+        message: 'Email wajib diisi.',
       });
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       return res.status(400).json({
         success: false,
-        message: 'Format email tidak valid.',
+        field: 'email',
+        message: 'Format email tidak valid (contoh: user@gmail.com).',
       });
     }
 
-    if (confirm_password && password !== confirm_password) {
-      return res.status(409).json({
+    if (!password) {
+      return res.status(400).json({
         success: false,
-        message: 'Konfirmasi password tidak cocok dengan password.',
+        field: 'password',
+        message: 'Password wajib diisi.',
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
+        field: 'password',
         message: 'Password minimal 6 karakter.',
+      });
+    }
+
+    if (confirm_password !== undefined && password !== confirm_password) {
+      return res.status(400).json({
+        success: false,
+        field: 'confirm_password',
+        message: 'Konfirmasi password tidak cocok dengan password.',
       });
     }
 
@@ -70,10 +98,14 @@ const register = async (req, res, next) => {
 
     if (existing.length > 0) {
       const match = existing[0];
-      const field = match.email === email.trim().toLowerCase() ? 'Email' : 'Username';
+      const isEmail = match.email === email.trim().toLowerCase();
+      const field = isEmail ? 'email' : 'username';
+      const fieldLabel = isEmail ? 'Email' : 'Username';
+      const val = isEmail ? email : userUsername;
       return res.status(400).json({
         success: false,
-        message: `${field} '${field === 'Email' ? email : userUsername}' sudah terdaftar. Silakan gunakan yang lain atau masuk.`,
+        field: field,
+        message: `${fieldLabel} '${val}' sudah terdaftar. Silakan gunakan yang lain atau masuk.`,
       });
     }
 
@@ -134,10 +166,19 @@ const login = async (req, res, next) => {
     // Identifier can be sent as email, username, loginInput, or identifier
     const loginInput = (inputVal || identifier || email || username || '').trim();
 
-    if (!loginInput || !password) {
+    if (!loginInput) {
       return res.status(400).json({
         success: false,
-        message: 'Email / Username dan Password wajib diisi.',
+        field: 'identifier',
+        message: 'Email atau username wajib diisi.',
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        field: 'password',
+        message: 'Password wajib diisi.',
       });
     }
 
@@ -151,6 +192,7 @@ const login = async (req, res, next) => {
     if (rows.length === 0) {
       return res.status(401).json({
         success: false,
+        field: 'identifier',
         message: 'Email atau Username tidak ditemukan.',
       });
     }
@@ -162,6 +204,7 @@ const login = async (req, res, next) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
+        field: 'password',
         message: 'Password yang Anda masukkan salah.',
       });
     }
@@ -218,11 +261,77 @@ const updateProfile = async (req, res, next) => {
     const { name, username, email, phone, province, city, address, language } = req.body;
     const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
 
-    if (normalizedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Format email tidak valid.',
-      });
+    if (name !== undefined && name !== null) {
+      if (!String(name).trim()) {
+        return res.status(400).json({
+          success: false,
+          field: 'name',
+          message: 'Nama lengkap wajib diisi.',
+        });
+      }
+      if (String(name).trim().length < 3) {
+        return res.status(400).json({
+          success: false,
+          field: 'name',
+          message: 'Nama minimal 3 karakter.',
+        });
+      }
+    }
+
+    if (username !== undefined && username !== null) {
+      const cleanUsername = String(username).trim();
+      if (!cleanUsername) {
+        return res.status(400).json({
+          success: false,
+          field: 'username',
+          message: 'Username wajib diisi.',
+        });
+      }
+      if (cleanUsername.length < 3) {
+        return res.status(400).json({
+          success: false,
+          field: 'username',
+          message: 'Username minimal 3 karakter.',
+        });
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
+        return res.status(400).json({
+          success: false,
+          field: 'username',
+          message: 'Username hanya boleh berupa huruf, angka, dan underscore (_).',
+        });
+      }
+    }
+
+    if (normalizedEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          field: 'email',
+          message: 'Format email tidak valid (contoh: user@gmail.com).',
+        });
+      }
+    }
+
+    if (phone !== undefined && phone !== null) {
+      const digits = String(phone).replace(/\D/g, '');
+      if (digits.length < 8 || digits.length > 13) {
+        return res.status(400).json({
+          success: false,
+          field: 'phone',
+          message: 'Nomor telepon harus 8-13 digit angka.',
+        });
+      }
+    }
+
+    if (address !== undefined && address !== null) {
+      if (String(address).trim().length < 5) {
+        return res.status(400).json({
+          success: false,
+          field: 'address',
+          message: 'Alamat minimal 5 karakter.',
+        });
+      }
     }
 
     // Check if new email/username is taken by another user
@@ -232,9 +341,11 @@ const updateProfile = async (req, res, next) => {
         [normalizedEmail || '', username || '', userId]
       );
       if (existing.length > 0) {
+        const isEmail = existing[0].email === normalizedEmail;
         return res.status(409).json({
           success: false,
-          message: 'Email atau Username sudah digunakan oleh pengguna lain.',
+          field: isEmail ? 'email' : 'username',
+          message: `${isEmail ? 'Email' : 'Username'} sudah digunakan oleh pengguna lain.`,
         });
       }
     }
