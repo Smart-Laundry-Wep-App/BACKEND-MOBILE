@@ -61,6 +61,7 @@ router.get('/', (req, res) => {
 // Mount Routes
 router.use('/auth', authRoutes);
 router.use('/users', authRoutes); // alias for /users/profile etc.
+router.use('/', authRoutes); // alias for /google, /facebook, /oauth-session etc. directly under /api
 router.use('/services', serviceRoutes);
 router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);

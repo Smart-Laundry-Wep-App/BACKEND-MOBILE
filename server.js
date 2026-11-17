@@ -6,7 +6,8 @@ const { testConnection } = require('./config/database');
 const apiRoutes = require('./routes');
 const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
 
-dotenv.config();
+const path = require('path');
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,8 +41,11 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     // Check database connection
-    const connected = await testConnection();
-    if (!connected) throw new Error('Koneksi database MySQL gagal.');
+    try {
+      await testConnection();
+    } catch (dbErr) {
+      console.warn('⚠️  [Database Warning] MySQL belum terhubung. Pastikan XAMPP / MySQL Service sudah di-start (Port 3306).');
+    }
 
     app.listen(PORT, () => {
       console.log('====================================================');
