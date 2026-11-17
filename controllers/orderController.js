@@ -37,6 +37,7 @@ const createOrder = async (req, res, next) => {
     if (!service) {
       return res.status(400).json({
         success: false,
+        field: 'service_id',
         message: 'Layanan laundry yang dipilih tidak valid atau tidak ditemukan.',
       });
     }
@@ -45,9 +46,24 @@ const createOrder = async (req, res, next) => {
     if (!Number.isFinite(qty) || qty <= 0 || qty > 500) {
       return res.status(400).json({
         success: false,
+        field: 'quantity',
         message: 'Jumlah harus lebih dari 0 dan maksimal 500.',
       });
     }
+
+    if (pickup_date) {
+      const parsedDate = new Date(pickup_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (isNaN(parsedDate.getTime()) || parsedDate < today) {
+        return res.status(400).json({
+          success: false,
+          field: 'pickup_date',
+          message: 'Tanggal pengambilan tidak boleh di masa lalu.',
+        });
+      }
+    }
+
     const pricePerUnit = parseFloat(service.price);
     const subtotal = qty * pricePerUnit;
 
@@ -62,6 +78,7 @@ const createOrder = async (req, res, next) => {
     if (!supportedMethods.includes(paymentMethod)) {
       return res.status(400).json({
         success: false,
+        field: 'payment_method',
         message: 'Metode pembayaran tidak didukung.',
       });
     }
@@ -76,6 +93,7 @@ const createOrder = async (req, res, next) => {
       if (!deliveryAddress) {
         return res.status(400).json({
           success: false,
+          field: 'delivery_address',
           message: 'Alamat delivery belum tersedia. Lengkapi alamat pada profil terlebih dahulu.',
         });
       }
@@ -262,12 +280,13 @@ const getOrders = async (req, res, next) => {
   }
 };
 
-// GET /api/orders/active (Pesanan Aktif untuk Widget Dashboard)
+// GET /api/orders/active (Pesanan Terbaru / Aktif untuk Widget Dashboard)
 const getActiveOrder = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
-    const [rows] = await pool.query(
+    // Prioritaskan pesanan aktif terbaru, atau jika tidak ada yang sedang berjalan, ambil pesanan paling baru yang masuk ke backend
+    let [rows] = await pool.query(
       `SELECT o.*, 
               t.current_step, t.step_index, t.estimated_delivery, t.last_status_message,
               t.driver_name, t.driver_phone
@@ -280,24 +299,71 @@ const getActiveOrder = async (req, res, next) => {
     );
 
     if (rows.length === 0) {
+      [rows] = await pool.query(
+        `SELECT o.*, 
+                t.current_step, t.step_index, t.estimated_delivery, t.last_status_message,
+                t.driver_name, t.driver_phone
+         FROM orders o
+         LEFT JOIN order_tracking t ON o.id = t.order_id
+         WHERE o.user_id = ?
+         ORDER BY o.id DESC
+         LIMIT 1`,
+        [userId]
+      );
+    }
+
+    if (rows.length === 0) {
       return res.status(200).json({
         success: true,
-        message: 'Tidak ada pesanan aktif saat ini.',
+        message: 'Tidak ada pesanan saat ini.',
         data: null,
       });
     }
 
     const order = rows[0];
+
+    const statusMap = {
+      menunggu_penjemputan: 'Menunggu Penjemputan',
+      sedang_dicuci: 'Sedang Dicuci',
+      siap_diambil: 'Siap Diambil',
+      sedang_diantar: 'Sedang Diantar',
+      selesai: 'Selesai',
+      dibatalkan: 'Dibatalkan',
+    };
+    const statusLabel = statusMap[order.order_status] || 'Dalam Proses';
+
+    let formattedPickupDate = '';
+    if (order.pickup_date) {
+      const d = new Date(order.pickup_date);
+      if (!isNaN(d.getTime())) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        formattedPickupDate = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+      }
+    }
+
+    const timeOrStatus = order.pickup_time ? `${order.pickup_time} WIB` : '';
+    const summaryText = `${order.service_name} • ${Number(order.quantity)} ${order.unit || 'kg'} • ${formattedPickupDate ? `${formattedPickupDate}, ` : ''}${timeOrStatus || statusLabel}`;
+
     res.status(200).json({
       success: true,
-      message: 'Pesanan aktif berhasil ditemukan.',
+      message: 'Pesanan terbaru berhasil ditemukan.',
       data: {
+        id: order.id,
         orderId: order.order_code,
+        orderCode: order.order_code,
         serviceName: order.service_name,
         quantity: order.quantity,
         unit: order.unit,
-        statusLabel: order.order_status === 'sedang_dicuci' ? 'Sedang Dicuci' : 'Dalam Proses',
-        summaryText: `${order.service_name} • ${order.quantity} ${order.unit} • Estimasi ${order.estimated_delivery || '16.00 WIB'}`,
+        totalPrice: order.total_price,
+        orderStatus: order.order_status,
+        paymentStatus: order.payment_status,
+        paymentMethod: order.payment_method,
+        pickupDate: order.pickup_date,
+        pickupTime: order.pickup_time,
+        categoryType: order.category_type,
+        statusLabel,
+        summaryText,
+        estimatedDelivery: order.estimated_delivery || '16.00 WIB',
         raw: order,
       },
     });
