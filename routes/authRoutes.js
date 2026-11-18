@@ -1,5 +1,18 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+
+// Konfigurasi Multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  }
+});
+const upload = multer({ storage });
+
 const {
   register,
   login,
@@ -42,7 +55,8 @@ router.get('/facebook/callback', facebookCallback);
 
 router.get('/profile', authMiddleware, getProfile);
 router.get('/me', authMiddleware, getProfile);
-router.put('/profile', authMiddleware, updateProfile);
+router.put('/profile', authMiddleware, upload.single('photo'), updateProfile);
 router.put('/notifications', authMiddleware, updateNotificationSettings);
 
 module.exports = router;
+
