@@ -32,6 +32,7 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api', apiRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Error Handling Middlewares
 app.use(notFoundHandler);
