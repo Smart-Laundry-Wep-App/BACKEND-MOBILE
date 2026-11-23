@@ -43,6 +43,27 @@ async function runMigration() {
     console.log('[3/4] Menjalankan DDL schema tabel...');
     const schemaSql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
     await rootConnection.query(schemaSql);
+
+    // Pastikan kolom latitude, longitude, address_detail di users
+    const [userCols] = await rootConnection.query("SHOW COLUMNS FROM `users` LIKE 'latitude'");
+    if (userCols.length === 0) {
+      await rootConnection.query(
+        "ALTER TABLE `users` ADD COLUMN `latitude` DECIMAL(10,8) DEFAULT -7.98260000 AFTER `address`"
+      );
+    }
+    const [userLngCols] = await rootConnection.query("SHOW COLUMNS FROM `users` LIKE 'longitude'");
+    if (userLngCols.length === 0) {
+      await rootConnection.query(
+        "ALTER TABLE `users` ADD COLUMN `longitude` DECIMAL(11,8) DEFAULT 112.63080000 AFTER `latitude`"
+      );
+    }
+    const [userDetailCols] = await rootConnection.query("SHOW COLUMNS FROM `users` LIKE 'address_detail'");
+    if (userDetailCols.length === 0) {
+      await rootConnection.query(
+        "ALTER TABLE `users` ADD COLUMN `address_detail` VARCHAR(255) DEFAULT 'Patokan dekat gapura putih' AFTER `address`"
+      );
+    }
+
     const [orderColumns] = await rootConnection.query(
       "SHOW COLUMNS FROM `orders` LIKE 'delivery_address'"
     );

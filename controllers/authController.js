@@ -232,7 +232,7 @@ const getProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const [rows] = await pool.query(
-      `SELECT id, name, username, email, phone, province, city, address, language, notification_settings, role, created_at
+      `SELECT id, name, username, email, avatar_url, phone, province, city, address, address_detail, latitude, longitude, language, notification_settings, role, created_at
        FROM users WHERE id = ?`,
       [userId]
     );
@@ -258,7 +258,7 @@ const getProfile = async (req, res, next) => {
 const updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { name, username, email, phone, province, city, address, language } = req.body;
+    const { name, username, email, avatar_url, phone, province, city, address, address_detail, latitude, longitude, language } = req.body;
     const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
 
     if (name !== undefined && name !== null) {
@@ -355,17 +355,21 @@ const updateProfile = async (req, res, next) => {
        SET name = COALESCE(?, name),
            username = COALESCE(?, username),
            email = COALESCE(?, email),
+           avatar_url = COALESCE(?, avatar_url),
            phone = COALESCE(?, phone),
            province = COALESCE(?, province),
            city = COALESCE(?, city),
            address = COALESCE(?, address),
+           address_detail = COALESCE(?, address_detail),
+           latitude = COALESCE(?, latitude),
+           longitude = COALESCE(?, longitude),
            language = COALESCE(?, language)
        WHERE id = ?`,
-      [name, username, normalizedEmail, phone, province, city, address, language, userId]
+      [name, username, normalizedEmail, avatar_url, phone, province, city, address, address_detail, latitude, longitude, language, userId]
     );
 
     const [updated] = await pool.query(
-      `SELECT id, name, username, email, phone, province, city, address, language, notification_settings, role
+      `SELECT id, name, username, email, avatar_url, phone, province, city, address, address_detail, latitude, longitude, language, notification_settings, role
        FROM users WHERE id = ?`,
       [userId]
     );
